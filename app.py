@@ -15,9 +15,16 @@ async def main():
         nahan = NahanAPI()
         users = await nahan.users()
 
-        print("Nahan API connection: SUCCESS")
-        print(f"Nahan users response type: {type(users).__name__}")
+    print("Nahan API connection: SUCCESS")
+print(f"Nahan users response type: {type(users).__name__}")
 
+if isinstance(users, dict):
+    print(f"Nahan users keys: {list(users.keys())}")
+elif isinstance(users, list):
+    print(f"Nahan users count: {len(users)}")
+else:
+    print(f"Nahan users value type: {type(users).__name__}")
+    
     except Exception as e:
         print("Nahan API connection: FAILED")
         print(f"Error: {type(e).__name__}: {e}")
