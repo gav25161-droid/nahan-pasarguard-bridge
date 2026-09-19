@@ -22,5 +22,6 @@ RUN python -m grpc_tools.protoc \
 RUN touch bridge/__init__.py
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/bridge
 
 CMD ["./start.sh"]
