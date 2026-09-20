@@ -30,7 +30,7 @@ RUN python -m grpc_tools.protoc \
 
 RUN touch bridge/__init__.py
 
-# Create TLS certificate for Railway TCP Proxy
+# Create TLS certificate for the Railway TCP Proxy hostname
 RUN mkdir -p /app/certs \
     && openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout /app/certs/server.key \
@@ -41,8 +41,5 @@ RUN mkdir -p /app/certs \
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/bridge
-
-ENV SSL_CERT_FILE=/app/certs/server.crt
-ENV SSL_KEY_FILE=/app/certs/server.key
 
 CMD ["./start.sh"]
