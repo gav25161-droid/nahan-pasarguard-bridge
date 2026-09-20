@@ -1,45 +1,21 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
-
-# Install OpenSSL and system CA certificates
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        openssl \
-        ca-certificates \
-    && update-ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY proto ./proto
-COPY bridge ./bridge
-COPY app.py .
-COPY start.sh .
+COPY . .
 
-RUN chmod +x start.sh
-
-# Generate PasarGuard gRPC Python files
-RUN python -m grpc_tools.protoc \
-    -I./proto \
-    --python_out=./bridge \
-    --grpc_python_out=./bridge \
-    ./proto/service.proto
-
-RUN touch bridge/__init__.py
-
-# Create TLS certificate for the Railway TCP Proxy hostname
-RUN mkdir -p /app/certs \
-    && openssl req -x509 -newkey rsa:2048 -nodes \
+RUN mkdir -p /app/certs && \
+    openssl req -x509 -nodes -days 3650 \
+    -newkey rsa:2048 \
     -keyout /app/certs/server.key \
     -out /app/certs/server.crt \
-    -days 3650 \
-    -subj "/CN=altaria.proxy.rlwy.net" \
-    -addext "subjectAltName=DNS:altaria.proxy.rlwy.net"
+    -subj "/CN=nahan-pasarguard-bridge.railway.internal" \
+    -addext "subjectAltName=DNS:nahan-pasarguard-bridge.railway.internal,DNS:altaria.proxy.rlwy.net"
 
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app/bridge
+EXPOSE 8080
 
-CMD ["./start.sh"]
+CMD ["python", "app.py"]
