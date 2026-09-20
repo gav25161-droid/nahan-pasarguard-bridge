@@ -1,3 +1,5 @@
+import os
+
 import grpc
 
 from bridge import service_pb2
@@ -6,7 +8,59 @@ from bridge.state import BridgeState
 from bridge.nahan import NahanAPI
 
 
-class NodeService(service_pb2_grpc.NodeServiceServicer):
+CERT_FILE = os.getenv(
+    "SSL_CERT_FILE",
+    "/app/certs/server.crt",
+)
+
+KEY_FILE = os.getenv(
+    "SSL_KEY_FILE",
+    "/app/certs/server.key",
+)
+
+API_KEY = os.getenv("API_KEY", "").strip()
+
+
+class AuthInterceptor(grpc.aio.ServerInterceptor):
+
+    async def intercept_service(
+        self,
+        continuation,
+        handler_call_details,
+    ):
+        metadata = dict(
+            handler_call_details.invocation_metadata
+        )
+
+        authorization = metadata.get(
+            "authorization",
+            "",
+        )
+
+        expected = f"Bearer {API_KEY}"
+
+        if not API_KEY or authorization != expected:
+            async def abort_handler(
+                request,
+                context,
+            ):
+                await context.abort(
+                    grpc.StatusCode.UNAUTHENTICATED,
+                    "Invalid or missing API key",
+                )
+
+            return grpc.unary_unary_rpc_method_handler(
+                abort_handler
+            )
+
+        return await continuation(
+            handler_call_details
+        )
+
+
+class NodeService(
+    service_pb2_grpc.NodeServiceServicer
+):
 
     def __init__(self):
         self.state = BridgeState()
@@ -15,7 +69,9 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
     def _describe_user(self, user, source):
         try:
             email = getattr(user, "email", "")
-            inbounds = list(getattr(user, "inbounds", []))
+            inbounds = list(
+                getattr(user, "inbounds", [])
+            )
 
             proxy_types = []
 
@@ -23,10 +79,17 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
                 if user.proxies.HasField("vless"):
                     proxy_types.append("vless")
 
-                    flow = getattr(user.proxies.vless, "flow", "")
+                    flow = getattr(
+                        user.proxies.vless,
+                        "flow",
+                        "",
+                    )
+
                     print(
-                        f"[SYNC] {source} email={email} "
-                        f"proxy=vless flow={'yes' if flow else 'no'} "
+                        f"[SYNC] {source} "
+                        f"email={email} "
+                        f"proxy=vless "
+                        f"flow={'yes' if flow else 'no'} "
                         f"inbounds={len(inbounds)}"
                     )
 
@@ -65,7 +128,8 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
 
             if "vless" not in proxy_types:
                 print(
-                    f"[SYNC] {source} email={email} "
+                    f"[SYNC] {source} "
+                    f"email={email} "
                     f"proxy={','.join(proxy_types) if proxy_types else 'none'} "
                     f"inbounds={len(inbounds)}"
                 )
@@ -113,7 +177,9 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
                 response.stats.add(
                     name="nahan",
                     type="Outbounds",
-                    value=int(total_requests or 0),
+                    value=int(
+                        total_requests or 0
+                    ),
                 )
 
             return response
@@ -126,9 +192,14 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
 
             return service_pb2.StatResponse()
 
-    async def GetUserOnlineStats(self, request, context):
+    async def GetUserOnlineStats(
+        self,
+        request,
+        context,
+    ):
         print(
-            f"[ONLINE] requested for email={request.name}"
+            f"[ONLINE] requested for "
+            f"email={request.name}"
         )
 
         return service_pb2.OnlineStatResponse(
@@ -136,23 +207,38 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
             value=0,
         )
 
-    async def GetUserOnlineIpListStats(self, request, context):
+    async def GetUserOnlineIpListStats(
+        self,
+        request,
+        context,
+    ):
         print(
-            f"[ONLINE-IP] requested for email={request.name}"
+            f"[ONLINE-IP] requested for "
+            f"email={request.name}"
         )
 
         return service_pb2.StatsOnlineIpListResponse(
             name=request.name,
         )
 
-    async def SyncUser(self, request_iterator, context):
+    async def SyncUser(
+        self,
+        request_iterator,
+        context,
+    ):
         count = 0
 
-        print("[SYNC] SyncUser stream started")
+        print(
+            "[SYNC] SyncUser stream started"
+        )
 
         async for user in request_iterator:
             count += 1
-            self._describe_user(user, "SyncUser")
+
+            self._describe_user(
+                user,
+                "SyncUser",
+            )
 
         print(
             f"[SYNC] SyncUser stream finished, "
@@ -161,7 +247,11 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
 
         return service_pb2.Empty()
 
-    async def SyncUsers(self, request, context):
+    async def SyncUsers(
+        self,
+        request,
+        context,
+    ):
         users = request.users
 
         print(
@@ -170,16 +260,24 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
         )
 
         for user in users:
-            self._describe_user(user, "SyncUsers")
+            self._describe_user(
+                user,
+                "SyncUsers",
+            )
 
         return service_pb2.Empty()
 
-    async def SyncUsersChunked(self, request_iterator, context):
+    async def SyncUsersChunked(
+        self,
+        request_iterator,
+        context,
+    ):
         total = 0
         chunks = 0
 
         print(
-            "[SYNC] SyncUsersChunked stream started"
+            "[SYNC] SyncUsersChunked "
+            "stream started"
         )
 
         async for chunk in request_iterator:
@@ -194,6 +292,7 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
 
             for user in chunk.users:
                 total += 1
+
                 self._describe_user(
                     user,
                     "SyncUsersChunked",
@@ -206,7 +305,11 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
 
         return service_pb2.Empty()
 
-    async def Start(self, request, context):
+    async def Start(
+        self,
+        request,
+        context,
+    ):
         print("[NODE] Start requested")
 
         return service_pb2.BaseInfoResponse(
@@ -215,18 +318,63 @@ class NodeService(service_pb2_grpc.NodeServiceServicer):
             node_version="bridge-1.0",
         )
 
-    async def Stop(self, request, context):
+    async def Stop(
+        self,
+        request,
+        context,
+    ):
         print("[NODE] Stop requested")
 
         return service_pb2.Empty()
 
 
 async def create_server():
-    server = grpc.aio.server()
+
+    if not os.path.exists(CERT_FILE):
+        raise RuntimeError(
+            f"TLS certificate not found: {CERT_FILE}"
+        )
+
+    if not os.path.exists(KEY_FILE):
+        raise RuntimeError(
+            f"TLS private key not found: {KEY_FILE}"
+        )
+
+    if not API_KEY:
+        raise RuntimeError(
+            "API_KEY is not configured"
+        )
+
+    with open(
+        CERT_FILE,
+        "rb",
+    ) as cert_file:
+        certificate = cert_file.read()
+
+    with open(
+        KEY_FILE,
+        "rb",
+    ) as key_file:
+        private_key = key_file.read()
+
+    credentials = grpc.ssl_server_credentials(
+        (
+            (
+                private_key,
+                certificate,
+            ),
+        )
+    )
+
+    server = grpc.aio.server(
+        interceptors=[
+            AuthInterceptor()
+        ]
+    )
 
     service_pb2_grpc.add_NodeServiceServicer_to_server(
         NodeService(),
         server,
     )
 
-    return server
+    return server, credentials
