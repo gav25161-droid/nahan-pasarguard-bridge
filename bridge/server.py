@@ -33,9 +33,29 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
         )
 
         authorization = metadata.get(
-            "authorization",
-            "",
-        )
+    "authorization",
+    "",
+)
+
+print(
+    f"[AUTH] received authorization: "
+    f"{authorization[:20]}..."
+)
+
+print(
+    f"[AUTH] API_KEY configured: "
+    f"{bool(API_KEY)}"
+)
+
+print(
+    f"[AUTH] received length: "
+    f"{len(authorization)}"
+)
+
+print(
+    f"[AUTH] expected length: "
+    f"{len(f'Bearer {API_KEY}')}"
+)
 
         expected = f"Bearer {API_KEY}"
 
