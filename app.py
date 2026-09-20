@@ -16,50 +16,40 @@ async def main():
         data = await nahan.users()
 
         print("Nahan API connection: SUCCESS")
-        print(f"Nahan users response type: {type(data).__name__}")
 
         if isinstance(data, dict):
-            print(f"Nahan users keys: {list(data.keys())}")
-
             users = data.get("users", [])
 
             print(f"Nahan users count: {len(users)}")
+            print(f"Nahan total: {data.get('total')}")
 
-            if users:
-                first_user = users[0]
+            for index, user in enumerate(users):
+                if not isinstance(user, dict):
+                    continue
 
                 print(
-                    f"First user type: "
-                    f"{type(first_user).__name__}"
+                    f"Nahan user #{index + 1}: "
+                    f"fields={list(user.keys())}"
                 )
 
-                if isinstance(first_user, dict):
+                usage = user.get("usage")
+
+                if isinstance(usage, dict):
                     print(
-                        f"First user keys: "
-                        f"{list(first_user.keys())}"
+                        f"Nahan user #{index + 1} usage fields: "
+                        f"{list(usage.keys())}"
                     )
 
-                    for key, value in first_user.items():
-                        if isinstance(value, dict):
-                            print(
-                                f"Field '{key}' keys: "
-                                f"{list(value.keys())}"
-                            )
+                print(
+                    f"Nahan user #{index + 1} status type: "
+                    f"{type(user.get('status')).__name__}"
+                )
 
-                        elif isinstance(value, list):
-                            print(
-                                f"Field '{key}' type: list, "
-                                f"count: {len(value)}"
-                            )
-
-                        else:
-                            print(
-                                f"Field '{key}' type: "
-                                f"{type(value).__name__}"
-                            )
-
-        elif isinstance(data, list):
-            print(f"Nahan users count: {len(data)}")
+        else:
+            print(
+                f"Unexpected users response type: "
+                f"{type(data).__name__}"
+            )
 
     except Exception as e:
         print("Nahan API connection: FAILED")
