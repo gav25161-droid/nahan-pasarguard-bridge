@@ -13,22 +13,53 @@ async def main():
 
     try:
         nahan = NahanAPI()
-        users = await nahan.users()
+        data = await nahan.users()
 
         print("Nahan API connection: SUCCESS")
-        print(f"Nahan users response type: {type(users).__name__}")
+        print(f"Nahan users response type: {type(data).__name__}")
 
-        if isinstance(users, dict):
-            print(f"Nahan users keys: {list(users.keys())}")
+        if isinstance(data, dict):
+            print(f"Nahan users keys: {list(data.keys())}")
 
-        elif isinstance(users, list):
+            users = data.get("users", [])
+
             print(f"Nahan users count: {len(users)}")
 
-        else:
-            print(
-                f"Nahan users value type: "
-                f"{type(users).__name__}"
-            )
+            if users:
+                first_user = users[0]
+
+                print(
+                    f"First user type: "
+                    f"{type(first_user).__name__}"
+                )
+
+                if isinstance(first_user, dict):
+                    print(
+                        f"First user keys: "
+                        f"{list(first_user.keys())}"
+                    )
+
+                    for key, value in first_user.items():
+                        if isinstance(value, dict):
+                            print(
+                                f"Field '{key}' keys: "
+                                f"{list(value.keys())}"
+                            )
+
+                        elif isinstance(value, list):
+                            print(
+                                f"Field '{key}' type: list, "
+                                f"count: {len(value)}"
+                            )
+
+                        else:
+                            print(
+                                f"Field '{key}' type: "
+                                f"{type(value).__name__}"
+                            )
+
+        elif isinstance(data, list):
+            print(f"Nahan users count: {len(data)}")
 
     except Exception as e:
         print("Nahan API connection: FAILED")
