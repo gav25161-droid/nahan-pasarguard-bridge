@@ -2,6 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install OpenSSL and system CA certificates
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         openssl \
@@ -20,6 +21,7 @@ COPY start.sh .
 
 RUN chmod +x start.sh
 
+# Generate PasarGuard gRPC Python files
 RUN python -m grpc_tools.protoc \
     -I./proto \
     --python_out=./bridge \
@@ -28,7 +30,7 @@ RUN python -m grpc_tools.protoc \
 
 RUN touch bridge/__init__.py
 
-# Create a self-signed TLS certificate for the Railway TCP Proxy hostname.
+# Create TLS certificate for Railway TCP Proxy
 RUN mkdir -p /app/certs \
     && openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout /app/certs/server.key \
