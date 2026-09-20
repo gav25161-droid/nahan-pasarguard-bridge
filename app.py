@@ -100,6 +100,21 @@ async def main():
         )
 
     server, credentials = await create_server()
+    print("========== SERVER CA BEGIN ==========")
+
+    try:
+        with open(
+            "/app/certs/server.crt",
+            "r",
+        ) as cert_file:
+            print(cert_file.read())
+    except Exception as e:
+        print(
+            f"Could not read certificate: "
+            f"{type(e).__name__}: {e}"
+        )
+
+    print("=========== SERVER CA END ===========")
 
     server.add_secure_port(
         f"0.0.0.0:{port}",
