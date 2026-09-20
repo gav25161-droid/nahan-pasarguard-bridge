@@ -32,14 +32,39 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
             handler_call_details.invocation_metadata
         )
 
+        # Read possible API-key metadata formats
         authorization = metadata.get(
             "authorization",
             "",
+        ).strip()
+
+        api_key = metadata.get(
+            "api-key",
+            "",
+        ).strip()
+
+        x_api_key = metadata.get(
+            "x-api-key",
+            "",
+        ).strip()
+
+        expected = API_KEY
+
+        # Accept the common formats:
+        # authorization: Bearer <API_KEY>
+        # authorization: <API_KEY>
+        # api-key: <API_KEY>
+        # x-api-key: <API_KEY>
+
+        valid = (
+            authorization == f"Bearer {expected}"
+            or authorization == expected
+            or api_key == expected
+            or x_api_key == expected
         )
 
-        expected = f"Bearer {API_KEY}"
+        if not API_KEY or not valid:
 
-        if not API_KEY or authorization != expected:
             async def abort_handler(
                 request,
                 context,
