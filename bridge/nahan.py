@@ -54,10 +54,18 @@ class NahanAPI:
         )
 
     async def get_user(self, user_id):
-        return await self.request(
-            "GET",
-            f"/api/users?id={user_id}",
-        )
+    result = await self.request(
+        "GET",
+        f"/api/users?id={user_id}",
+    )
+
+    print(
+        "[NAHAN USER RESPONSE]",
+        result,
+        flush=True,
+    )
+
+    return result
 
     async def stats(self):
         return await self.request(
