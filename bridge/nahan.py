@@ -5,12 +5,20 @@ import httpx
 class NahanAPI:
 
     def __init__(self):
-        self.base_url = os.getenv("NAHAN_URL", "").rstrip("/")
-        self.api_key = os.getenv("NAHAN_API_KEY", "")
-        self.api_route = os.getenv(
-            "NAHAN_API_ROUTE",
-            "sync",
-        ).strip("/")
+        # NAHAN_URL باید آدرس کامل Base API باشد.
+        # مثال:
+        # https://example.com/vless
+        # یا:
+        # https://example.com/sync
+        self.base_url = os.getenv(
+            "NAHAN_URL",
+            "",
+        ).rstrip("/")
+
+        self.api_key = os.getenv(
+            "NAHAN_API_KEY",
+            "",
+        ).strip()
 
     def _headers(self):
         return {
@@ -18,15 +26,23 @@ class NahanAPI:
             "Content-Type": "application/json",
         }
 
-    async def request(self, method, path, **kwargs):
+    async def request(
+        self,
+        method,
+        path,
+        **kwargs,
+    ):
         if not self.base_url:
             raise RuntimeError(
                 "NAHAN_URL is not configured"
             )
 
+        # NAHAN_URL خودش شامل endpoint است.
+        # بنابراین دیگر /sync یا endpoint پیش‌فرض
+        # به آن اضافه نمی‌شود.
         url = (
-            f"{self.base_url}/"
-            f"{self.api_route}{path}"
+            f"{self.base_url}"
+            f"/{path.lstrip('/')}"
         )
 
         async with httpx.AsyncClient(
@@ -53,7 +69,10 @@ class NahanAPI:
             "/api/users",
         )
 
-    async def get_user(self, user_id):
+    async def get_user(
+        self,
+        user_id,
+    ):
         return await self.request(
             "GET",
             f"/api/users?id={user_id}",
@@ -108,19 +127,28 @@ class NahanAPI:
             json=fields,
         )
 
-    async def delete_user(self, user_id):
+    async def delete_user(
+        self,
+        user_id,
+    ):
         return await self.request(
             "DELETE",
             f"/api/users?id={user_id}",
         )
 
-    async def toggle_user(self, user_id):
+    async def toggle_user(
+        self,
+        user_id,
+    ):
         return await self.request(
             "POST",
             f"/api/users?id={user_id}&action=toggle",
         )
 
-    async def reset_traffic(self, user_id):
+    async def reset_traffic(
+        self,
+        user_id,
+    ):
         return await self.request(
             "POST",
             f"/api/users?id={user_id}&action=reset",
