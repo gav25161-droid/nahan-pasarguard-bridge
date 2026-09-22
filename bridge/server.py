@@ -236,8 +236,6 @@ class NodeService(
         request,
         context,
     ):
-        # Debug information.
-        # This does not change the returned statistics.
         try:
             request_name = getattr(
                 request,
@@ -276,13 +274,15 @@ class NodeService(
             data = await self.nahan.stats()
 
             print(
-    "[STATS RESPONSE] "
-    f"python_type={type(data).__name__}"
-)
+                "[STATS RESPONSE] "
+                f"python_type={type(data).__name__}"
+            )
 
-print(
-    f"[STATS DATA] {data}"
-)
+            # DEBUG:
+            # نمایش پاسخ کامل Nahan برای بررسی ساختار آمار
+            print(
+                f"[STATS DATA] {data}"
+            )
 
             response = service_pb2.StatResponse()
 
