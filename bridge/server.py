@@ -278,8 +278,6 @@ class NodeService(
                 f"python_type={type(data).__name__}"
             )
 
-            # DEBUG:
-            # نمایش پاسخ کامل Nahan برای بررسی ساختار آمار
             print(
                 f"[STATS DATA] {data}"
             )
@@ -319,13 +317,6 @@ class NodeService(
                     ),
                 )
 
-            else:
-
-                print(
-                    "[STATS] "
-                    "Nahan response is not a dict"
-                )
-
             return response
 
         except Exception as e:
@@ -342,18 +333,10 @@ class NodeService(
         request,
         context,
     ):
-        try:
-            print(
-                "[ONLINE] requested for "
-                f"email={request.name}"
-            )
-
-        except Exception as e:
-
-            print(
-                "[ONLINE] request inspection failed: "
-                f"{type(e).__name__}: {e}"
-            )
+        print(
+            "[ONLINE] requested for "
+            f"email={request.name}"
+        )
 
         return service_pb2.OnlineStatResponse(
             name=request.name,
@@ -365,18 +348,10 @@ class NodeService(
         request,
         context,
     ):
-        try:
-            print(
-                "[ONLINE-IP] requested for "
-                f"email={request.name}"
-            )
-
-        except Exception as e:
-
-            print(
-                "[ONLINE-IP] request inspection failed: "
-                f"{type(e).__name__}: {e}"
-            )
+        print(
+            "[ONLINE-IP] requested for "
+            f"email={request.name}"
+        )
 
         return service_pb2.StatsOnlineIpListResponse(
             name=request.name,
@@ -479,6 +454,27 @@ class NodeService(
             "[NODE] Start requested"
         )
 
+        # تست موقت و فقط خواندنی:
+        # دریافت لیست کاربران Nahan
+        try:
+            users_data = await self.nahan.users()
+
+            print(
+                "[NAHAN USERS] "
+                f"python_type={type(users_data).__name__}"
+            )
+
+            print(
+                f"[NAHAN USERS DATA] {users_data}"
+            )
+
+        except Exception as e:
+
+            print(
+                "[NAHAN USERS] Failed: "
+                f"{type(e).__name__}: {e}"
+            )
+
         return service_pb2.BaseInfoResponse(
             started=True,
             core_version="nahan",
@@ -551,12 +547,9 @@ async def create_server():
         ]
     )
 
-    (
-        service_pb2_grpc
-        .add_NodeServiceServicer_to_server(
-            NodeService(),
-            server,
-        )
+    service_pb2_grpc.add_NodeServiceServicer_to_server(
+        NodeService(),
+        server,
     )
 
     return server, credentials
