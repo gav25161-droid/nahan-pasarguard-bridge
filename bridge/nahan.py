@@ -78,11 +78,55 @@ class NahanAPI:
             f"/api/users?id={user_id}",
         )
 
-    async def stats(self):
-        return await self.request(
-            "GET",
-            "/api/stats",
+    async def GetStats(self, request, context):
+    print(
+        f"[STATS REQUEST] "
+        f"name={request.name} "
+        f"type={request.type} "
+        f"reset={request.reset}"
+    )
+
+    try:
+        data = await self.nahan.stats()
+
+        print(
+            f"[STATS RESPONSE] "
+            f"type={type(data).__name__}"
         )
+
+        response = service_pb2.StatResponse()
+
+        if isinstance(data, dict):
+            stats = data.get("stats", {})
+            traffic = stats.get("traffic", {})
+
+            total_requests = traffic.get(
+                "totalRequests",
+                0,
+            )
+
+            print(
+                f"[STATS] totalRequests="
+                f"{total_requests}"
+            )
+
+            response.stats.add(
+                name="nahan",
+                type="Outbounds",
+                value=int(
+                    total_requests or 0
+                ),
+            )
+
+        return response
+
+    except Exception as e:
+        print(
+            f"[STATS] Failed: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return service_pb2.StatResponse()
 
     async def create_user(
         self,
