@@ -1,9 +1,8 @@
 import os
-import grpc
 
+import grpc
 from bridge import service_pb2
 from bridge import service_pb2_grpc
-
 from bridge.state import BridgeState
 from bridge.nahan import NahanAPI
 
@@ -18,10 +17,7 @@ KEY_FILE = os.getenv(
     "/app/certs/server.key",
 )
 
-API_KEY = os.getenv(
-    "API_KEY",
-    "",
-).strip()
+API_KEY = os.getenv("API_KEY", "").strip()
 
 
 class AuthInterceptor(grpc.aio.ServerInterceptor):
@@ -53,14 +49,10 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
         expected = API_KEY
 
         valid = (
-            authorization
-            == f"Bearer {expected}"
-            or authorization
-            == expected
-            or api_key
-            == expected
-            or x_api_key
-            == expected
+            authorization == f"Bearer {expected}"
+            or authorization == expected
+            or api_key == expected
+            or x_api_key == expected
         )
 
         if not API_KEY or not valid:
@@ -88,79 +80,126 @@ class NodeService(
 ):
 
     def __init__(self):
-
         self.state = BridgeState()
-
         self.nahan = NahanAPI()
 
-    # -----------------------------------------
-    # Helper
-    # -----------------------------------------
+    def _describe_user(self, user, source):
 
-    def _describe_user(
-        self,
-        user,
-        source,
-    ):
         try:
-
             email = getattr(
                 user,
                 "email",
                 "",
             )
 
-            proxy = getattr(
-                user,
-                "proxies",
-                None,
+            inbounds = list(
+                getattr(
+                    user,
+                    "inbounds",
+                    [],
+                )
             )
 
-            inbounds = getattr(
-                user,
-                "inbounds",
-                [],
-            )
-
+            print("")
+            print("========== USER SYNC ==========")
             print(
-                f"[USER] "
-                f"source={source} "
-                f"email={email} "
-                f"inbounds={len(inbounds)}"
+                f"[SYNC] source={source}"
+            )
+            print(
+                f"[SYNC] email={email}"
+            )
+            print(
+                f"[SYNC] inbounds={inbounds}"
             )
 
-            if proxy is not None:
+            try:
+                if user.proxies.HasField("vless"):
 
-                try:
-
-                    vless = getattr(
-                        proxy,
-                        "vless",
-                        None,
+                    vless_id = getattr(
+                        user.proxies.vless,
+                        "id",
+                        "",
                     )
 
-                    if vless is not None:
+                    flow = getattr(
+                        user.proxies.vless,
+                        "flow",
+                        "",
+                    )
 
-                        print(
-                            f"[USER] "
-                            f"VLESS flow="
-                            f"{getattr(vless, 'flow', '')}"
-                        )
+                    print(
+                        "[SYNC] proxy=vless"
+                    )
 
-                except Exception:
-                    pass
+                    print(
+                        f"[SYNC] vless_id={vless_id}"
+                    )
+
+                    print(
+                        f"[SYNC] flow={flow}"
+                    )
+
+            except Exception as e:
+
+                print(
+                    "[SYNC] VLESS inspect error:",
+                    type(e).__name__,
+                    str(e),
+                )
+
+            try:
+                if user.proxies.HasField("vmess"):
+
+                    vmess_id = getattr(
+                        user.proxies.vmess,
+                        "id",
+                        "",
+                    )
+
+                    print(
+                        "[SYNC] proxy=vmess"
+                    )
+
+                    print(
+                        f"[SYNC] vmess_id={vmess_id}"
+                    )
+
+            except Exception:
+                pass
+
+            try:
+                if user.proxies.HasField("trojan"):
+
+                    password = getattr(
+                        user.proxies.trojan,
+                        "password",
+                        "",
+                    )
+
+                    print(
+                        "[SYNC] proxy=trojan"
+                    )
+
+                    print(
+                        f"[SYNC] trojan_password_present="
+                        f"{bool(password)}"
+                    )
+
+            except Exception:
+                pass
+
+            print(
+                "========== END USER SYNC =========="
+            )
+            print("")
 
         except Exception as e:
 
             print(
-                f"[USER] "
-                f"describe failed: "
-                f"{type(e).__name__}: {e}"
+                "[SYNC] Failed to inspect user:",
+                type(e).__name__,
+                str(e),
             )
-
-    # -----------------------------------------
-    # Base Info
-    # -----------------------------------------
 
     async def GetBaseInfo(
         self,
@@ -174,10 +213,6 @@ class NodeService(
             node_version="bridge-1.0",
         )
 
-    # -----------------------------------------
-    # System Stats
-    # -----------------------------------------
-
     async def GetSystemStats(
         self,
         request,
@@ -190,10 +225,6 @@ class NodeService(
             uptime=0,
         )
 
-    # -----------------------------------------
-    # Backend Stats
-    # -----------------------------------------
-
     async def GetBackendStats(
         self,
         request,
@@ -204,10 +235,6 @@ class NodeService(
             uptime=0,
         )
 
-    # -----------------------------------------
-    # Stats
-    # -----------------------------------------
-
     async def GetStats(
         self,
         request,
@@ -216,49 +243,25 @@ class NodeService(
 
         try:
 
-            request_name = getattr(
-                request,
-                "name",
-                "",
+            request_type = int(
+                request.type
             )
 
-            request_reset = getattr(
-                request,
-                "reset",
-                False,
-            )
-
-            request_type = getattr(
-                request,
-                "type",
-                0,
+            print("")
+            print(
+                "================================"
             )
 
             print(
                 f"[STATS REQUEST] "
-                f"name={request_name} "
+                f"name={request.name} "
                 f"type={request_type} "
-                f"reset={request_reset}"
+                f"reset={request.reset}"
             )
 
-        except Exception as e:
-
-            print(
-                f"[STATS REQUEST] "
-                f"LOG ERROR: "
-                f"{type(e).__name__}: {e}"
-            )
-
-            request_name = ""
-            request_type = 0
-
-        try:
-
-            response = service_pb2.StatResponse()
-
-            # =================================
-            # type=4 = UsersStat
-            # =================================
+            # --------------------------------
+            # UsersStat = 4
+            # --------------------------------
 
             if request_type == 4:
 
@@ -267,108 +270,127 @@ class NodeService(
                     "Fetching Nahan users..."
                 )
 
-                users_data = await self.nahan.users()
+                data = await self.nahan.users()
 
                 print(
                     "[USERS STAT] "
-                    f"python_type="
-                    f"{type(users_data).__name__}"
+                    f"python_type={type(data).__name__}"
                 )
 
                 print(
-                    "[USERS STAT DATA] "
-                    f"{users_data}"
+                    "[USERS STAT DATA]",
+                    data,
                 )
 
-                if isinstance(
-                    users_data,
+                response = (
+                    service_pb2.StatResponse()
+                )
+
+                if not isinstance(
+                    data,
                     dict,
                 ):
-
-                    users = users_data.get(
-                        "users",
-                        [],
-                    )
-
                     print(
                         "[USERS STAT] "
-                        f"users_count="
-                        f"{len(users)}"
+                        "Invalid response type"
                     )
 
-                    for user in users:
+                    return response
 
-                        if not isinstance(
-                            user,
-                            dict,
-                        ):
-                            continue
+                users = data.get(
+                    "users",
+                    [],
+                )
 
-                        user_name = str(
-                            user.get(
-                                "name",
-                                "",
-                            )
-                        ).strip()
+                print(
+                    f"[USERS STAT] "
+                    f"users_count={len(users)}"
+                )
 
-                        usage = user.get(
-                            "usage",
-                            {},
+                for user in users:
+
+                    if not isinstance(
+                        user,
+                        dict,
+                    ):
+                        continue
+
+                    user_id = user.get(
+                        "id",
+                        "",
+                    )
+
+                    user_name = user.get(
+                        "name",
+                        "",
+                    )
+
+                    usage = user.get(
+                        "usage",
+                        {},
+                    )
+
+                    if not isinstance(
+                        usage,
+                        dict,
+                    ):
+                        usage = {}
+
+                    total_usage = usage.get(
+                        "total",
+                        0,
+                    )
+
+                    try:
+                        total_usage = int(
+                            total_usage or 0
                         )
+                    except Exception:
+                        total_usage = 0
 
-                        if not isinstance(
-                            usage,
-                            dict,
-                        ):
-                            usage = {}
+                    print(
+                        f"[USERS STAT] "
+                        f"name={user_name} "
+                        f"id={user_id} "
+                        f"total={total_usage}"
+                    )
 
-                        total_usage = usage.get(
-                            "total",
-                            0,
-                        )
+                    response.stats.add(
+                        name=user_name,
+                        type="UserStat",
+                        value=total_usage,
+                    )
 
-                        try:
+                print(
+                    f"[USERS STAT] "
+                    f"Returning "
+                    f"{len(response.stats)} stats"
+                )
 
-                            total_usage = int(
-                                total_usage or 0
-                            )
-
-                        except Exception:
-
-                            total_usage = 0
-
-                        print(
-                            "[USERS STAT] "
-                            f"name={user_name} "
-                            f"total={total_usage}"
-                        )
-
-                        if not user_name:
-                            continue
-
-                        response.stats.add(
-                            name=user_name,
-                            type="UserStat",
-                            value=total_usage,
-                        )
+                print(
+                    "================================"
+                )
 
                 return response
 
-            # =================================
-            # type=0 = Outbounds
-            # =================================
+            # --------------------------------
+            # Other stat types
+            # --------------------------------
 
             data = await self.nahan.stats()
 
             print(
                 "[STATS RESPONSE] "
-                f"python_type="
-                f"{type(data).__name__}"
+                f"python_type={type(data).__name__}"
             )
 
             print(
-                "[STATS DATA] "
-                f"{data}"
+                "[STATS DATA]",
+                data,
+            )
+
+            response = (
+                service_pb2.StatResponse()
             )
 
             if isinstance(
@@ -405,20 +427,21 @@ class NodeService(
                     ),
                 )
 
+            print(
+                "================================"
+            )
+
             return response
 
         except Exception as e:
 
             print(
-                "[STATS] Failed: "
-                f"{type(e).__name__}: {e}"
+                "[STATS] Failed:",
+                type(e).__name__,
+                str(e),
             )
 
             return service_pb2.StatResponse()
-
-    # -----------------------------------------
-    # User Online Stats
-    # -----------------------------------------
 
     async def GetUserOnlineStats(
         self,
@@ -427,22 +450,14 @@ class NodeService(
     ):
 
         print(
-            "[ONLINE REQUEST] "
-            f"name={getattr(request, 'name', '')}"
+            f"[ONLINE] requested for "
+            f"email={request.name}"
         )
 
         return service_pb2.OnlineStatResponse(
-            name=getattr(
-                request,
-                "name",
-                "",
-            ),
+            name=request.name,
             value=0,
         )
-
-    # -----------------------------------------
-    # User Online IP List
-    # -----------------------------------------
 
     async def GetUserOnlineIpListStats(
         self,
@@ -451,22 +466,15 @@ class NodeService(
     ):
 
         print(
-            "[ONLINE IP REQUEST] "
-            f"name={getattr(request, 'name', '')}"
+            f"[ONLINE-IP] requested for "
+            f"email={request.name}"
         )
 
-        return service_pb2.StatsOnlineIpListResponse(
-            name=getattr(
-                request,
-                "name",
-                "",
-            ),
-            ips={},
+        return (
+            service_pb2.StatsOnlineIpListResponse(
+                name=request.name,
+            )
         )
-
-    # -----------------------------------------
-    # Sync User
-    # -----------------------------------------
 
     async def SyncUser(
         self,
@@ -474,33 +482,29 @@ class NodeService(
         context,
     ):
 
+        count = 0
+
         print(
-            "[SYNC USER] "
-            "request received"
+            "[SYNC] "
+            "SyncUser stream started"
         )
 
-        try:
+        async for user in request_iterator:
 
-            async for user in request_iterator:
+            count += 1
 
-                self._describe_user(
-                    user,
-                    "SyncUser",
-                )
-
-        except Exception as e:
-
-            print(
-                "[SYNC USER] "
-                f"Failed: "
-                f"{type(e).__name__}: {e}"
+            self._describe_user(
+                user,
+                "SyncUser",
             )
 
-        return service_pb2.Empty()
+        print(
+            "[SYNC] "
+            f"SyncUser stream finished, "
+            f"users={count}"
+        )
 
-    # -----------------------------------------
-    # Sync Users
-    # -----------------------------------------
+        return service_pb2.Empty()
 
     async def SyncUsers(
         self,
@@ -508,44 +512,22 @@ class NodeService(
         context,
     ):
 
+        users = request.users
+
         print(
-            "[SYNC USERS] "
-            "request received"
+            "[SYNC] "
+            f"SyncUsers received, "
+            f"users={len(users)}"
         )
 
-        try:
+        for user in users:
 
-            users = getattr(
-                request,
-                "users",
-                [],
-            )
-
-            print(
-                "[SYNC USERS] "
-                f"count={len(users)}"
-            )
-
-            for user in users:
-
-                self._describe_user(
-                    user,
-                    "SyncUsers",
-                )
-
-        except Exception as e:
-
-            print(
-                "[SYNC USERS] "
-                f"Failed: "
-                f"{type(e).__name__}: {e}"
+            self._describe_user(
+                user,
+                "SyncUsers",
             )
 
         return service_pb2.Empty()
-
-    # -----------------------------------------
-    # Sync Users Chunked
-    # -----------------------------------------
 
     async def SyncUsersChunked(
         self,
@@ -553,60 +535,43 @@ class NodeService(
         context,
     ):
 
+        total = 0
+        chunks = 0
+
         print(
-            "[SYNC USERS CHUNKED] "
-            "request received"
+            "[SYNC] "
+            "SyncUsersChunked "
+            "stream started"
         )
 
-        try:
+        async for chunk in request_iterator:
 
-            async for chunk in request_iterator:
-
-                users = getattr(
-                    chunk,
-                    "users",
-                    [],
-                )
-
-                index = getattr(
-                    chunk,
-                    "index",
-                    0,
-                )
-
-                last = getattr(
-                    chunk,
-                    "last",
-                    False,
-                )
-
-                print(
-                    "[SYNC USERS CHUNKED] "
-                    f"index={index} "
-                    f"count={len(users)} "
-                    f"last={last}"
-                )
-
-                for user in users:
-
-                    self._describe_user(
-                        user,
-                        "SyncUsersChunked",
-                    )
-
-        except Exception as e:
+            chunks += 1
 
             print(
-                "[SYNC USERS CHUNKED] "
-                f"Failed: "
-                f"{type(e).__name__}: {e}"
+                f"[SYNC] Chunk #{chunks}: "
+                f"users={len(chunk.users)} "
+                f"index={chunk.index} "
+                f"last={chunk.last}"
             )
 
-        return service_pb2.Empty()
+            for user in chunk.users:
 
-    # -----------------------------------------
-    # Start
-    # -----------------------------------------
+                total += 1
+
+                self._describe_user(
+                    user,
+                    "SyncUsersChunked",
+                )
+
+        print(
+            "[SYNC] "
+            f"SyncUsersChunked finished, "
+            f"chunks={chunks}, "
+            f"users={total}"
+        )
+
+        return service_pb2.Empty()
 
     async def Start(
         self,
@@ -615,43 +580,14 @@ class NodeService(
     ):
 
         print(
-            "[NODE] "
-            "Start requested"
+            "[NODE] Start requested"
         )
-
-        # فقط برای بررسی اتصال Nahan
-        # و مشاهده کاربران موجود.
-        try:
-
-            users_data = await self.nahan.users()
-
-            print(
-                "[NAHAN USERS] "
-                f"python_type="
-                f"{type(users_data).__name__}"
-            )
-
-            print(
-                "[NAHAN USERS DATA] "
-                f"{users_data}"
-            )
-
-        except Exception as e:
-
-            print(
-                "[NAHAN USERS] Failed: "
-                f"{type(e).__name__}: {e}"
-            )
 
         return service_pb2.BaseInfoResponse(
             started=True,
             core_version="nahan",
             node_version="bridge-1.0",
         )
-
-    # -----------------------------------------
-    # Stop
-    # -----------------------------------------
 
     async def Stop(
         self,
@@ -660,16 +596,11 @@ class NodeService(
     ):
 
         print(
-            "[NODE] "
-            "Stop requested"
+            "[NODE] Stop requested"
         )
 
         return service_pb2.Empty()
 
-
-# =============================================
-# Create gRPC Server
-# =============================================
 
 async def create_server():
 
@@ -678,7 +609,7 @@ async def create_server():
     ):
 
         raise RuntimeError(
-            f"Certificate file not found: "
+            f"TLS certificate not found: "
             f"{CERT_FILE}"
         )
 
@@ -687,7 +618,7 @@ async def create_server():
     ):
 
         raise RuntimeError(
-            f"Private key file not found: "
+            f"TLS private key not found: "
             f"{KEY_FILE}"
         )
 
@@ -698,18 +629,22 @@ async def create_server():
         )
 
     with open(
-        KEY_FILE,
-        "rb",
-    ) as f:
-
-        private_key = f.read()
-
-    with open(
         CERT_FILE,
         "rb",
-    ) as f:
+    ) as cert_file:
 
-        certificate = f.read()
+        certificate = (
+            cert_file.read()
+        )
+
+    with open(
+        KEY_FILE,
+        "rb",
+    ) as key_file:
+
+        private_key = (
+            key_file.read()
+        )
 
     credentials = (
         grpc.ssl_server_credentials(
@@ -728,10 +663,12 @@ async def create_server():
         ]
     )
 
-    service_pb2_grpc.add_NodeServiceServicer_to_server(
-        NodeService(),
-        server,
+    (
+        service_pb2_grpc
+        .add_NodeServiceServicer_to_server(
+            NodeService(),
+            server,
+        )
     )
 
     return server, credentials
-    
