@@ -3,6 +3,7 @@ import grpc
 
 from bridge import service_pb2
 from bridge import service_pb2_grpc
+
 from bridge.state import BridgeState
 from bridge.nahan import NahanAPI
 
@@ -23,16 +24,13 @@ API_KEY = os.getenv(
 ).strip()
 
 
-class AuthInterceptor(
-    grpc.aio.ServerInterceptor
-):
+class AuthInterceptor(grpc.aio.ServerInterceptor):
 
     async def intercept_service(
         self,
         continuation,
         handler_call_details,
     ):
-
         metadata = dict(
             handler_call_details.invocation_metadata
         )
@@ -92,6 +90,7 @@ class NodeService(
     def __init__(self):
 
         self.state = BridgeState()
+
         self.nahan = NahanAPI()
 
     # -----------------------------------------
@@ -103,7 +102,6 @@ class NodeService(
         user,
         source,
     ):
-
         try:
 
             email = getattr(
@@ -251,20 +249,127 @@ class NodeService(
                 f"{type(e).__name__}: {e}"
             )
 
+            request_name = ""
+            request_type = 0
+
         try:
+
+            response = service_pb2.StatResponse()
+
+            # =================================
+            # type=4 = UsersStat
+            # =================================
+
+            if request_type == 4:
+
+                print(
+                    "[USERS STAT] "
+                    "Fetching Nahan users..."
+                )
+
+                users_data = await self.nahan.users()
+
+                print(
+                    "[USERS STAT] "
+                    f"python_type="
+                    f"{type(users_data).__name__}"
+                )
+
+                print(
+                    "[USERS STAT DATA] "
+                    f"{users_data}"
+                )
+
+                if isinstance(
+                    users_data,
+                    dict,
+                ):
+
+                    users = users_data.get(
+                        "users",
+                        [],
+                    )
+
+                    print(
+                        "[USERS STAT] "
+                        f"users_count="
+                        f"{len(users)}"
+                    )
+
+                    for user in users:
+
+                        if not isinstance(
+                            user,
+                            dict,
+                        ):
+                            continue
+
+                        user_name = str(
+                            user.get(
+                                "name",
+                                "",
+                            )
+                        ).strip()
+
+                        usage = user.get(
+                            "usage",
+                            {},
+                        )
+
+                        if not isinstance(
+                            usage,
+                            dict,
+                        ):
+                            usage = {}
+
+                        total_usage = usage.get(
+                            "total",
+                            0,
+                        )
+
+                        try:
+
+                            total_usage = int(
+                                total_usage or 0
+                            )
+
+                        except Exception:
+
+                            total_usage = 0
+
+                        print(
+                            "[USERS STAT] "
+                            f"name={user_name} "
+                            f"total={total_usage}"
+                        )
+
+                        if not user_name:
+                            continue
+
+                        response.stats.add(
+                            name=user_name,
+                            type="UserStat",
+                            value=total_usage,
+                        )
+
+                return response
+
+            # =================================
+            # type=0 = Outbounds
+            # =================================
 
             data = await self.nahan.stats()
 
             print(
-                f"[STATS RESPONSE] "
-                f"python_type={type(data).__name__}"
+                "[STATS RESPONSE] "
+                f"python_type="
+                f"{type(data).__name__}"
             )
 
             print(
-                f"[STATS DATA] {data}"
+                "[STATS DATA] "
+                f"{data}"
             )
-
-            response = service_pb2.StatResponse()
 
             if isinstance(
                 data,
@@ -287,8 +392,9 @@ class NodeService(
                 )
 
                 print(
-                    f"[STATS] "
-                    f"totalRequests={total_requests}"
+                    "[STATS] "
+                    f"totalRequests="
+                    f"{total_requests}"
                 )
 
                 response.stats.add(
@@ -304,7 +410,7 @@ class NodeService(
         except Exception as e:
 
             print(
-                f"[STATS] Failed: "
+                "[STATS] Failed: "
                 f"{type(e).__name__}: {e}"
             )
 
@@ -321,7 +427,7 @@ class NodeService(
     ):
 
         print(
-            f"[ONLINE REQUEST] "
+            "[ONLINE REQUEST] "
             f"name={getattr(request, 'name', '')}"
         )
 
@@ -345,7 +451,7 @@ class NodeService(
     ):
 
         print(
-            f"[ONLINE IP REQUEST] "
+            "[ONLINE IP REQUEST] "
             f"name={getattr(request, 'name', '')}"
         )
 
@@ -385,7 +491,7 @@ class NodeService(
         except Exception as e:
 
             print(
-                f"[SYNC USER] "
+                "[SYNC USER] "
                 f"Failed: "
                 f"{type(e).__name__}: {e}"
             )
@@ -416,7 +522,7 @@ class NodeService(
             )
 
             print(
-                f"[SYNC USERS] "
+                "[SYNC USERS] "
                 f"count={len(users)}"
             )
 
@@ -430,7 +536,7 @@ class NodeService(
         except Exception as e:
 
             print(
-                f"[SYNC USERS] "
+                "[SYNC USERS] "
                 f"Failed: "
                 f"{type(e).__name__}: {e}"
             )
@@ -475,7 +581,7 @@ class NodeService(
                 )
 
                 print(
-                    f"[SYNC USERS CHUNKED] "
+                    "[SYNC USERS CHUNKED] "
                     f"index={index} "
                     f"count={len(users)} "
                     f"last={last}"
@@ -491,7 +597,7 @@ class NodeService(
         except Exception as e:
 
             print(
-                f"[SYNC USERS CHUNKED] "
+                "[SYNC USERS CHUNKED] "
                 f"Failed: "
                 f"{type(e).__name__}: {e}"
             )
@@ -513,25 +619,27 @@ class NodeService(
             "Start requested"
         )
 
+        # فقط برای بررسی اتصال Nahan
+        # و مشاهده کاربران موجود.
         try:
 
             users_data = await self.nahan.users()
 
             print(
-                f"[NAHAN USERS] "
+                "[NAHAN USERS] "
                 f"python_type="
                 f"{type(users_data).__name__}"
             )
 
             print(
-                f"[NAHAN USERS DATA] "
+                "[NAHAN USERS DATA] "
                 f"{users_data}"
             )
 
         except Exception as e:
 
             print(
-                f"[NAHAN USERS] Failed: "
+                "[NAHAN USERS] Failed: "
                 f"{type(e).__name__}: {e}"
             )
 
@@ -626,5 +734,4 @@ async def create_server():
     )
 
     return server, credentials
-
-این همان نسخه‌ای است که قبل از تغییر اخیر Bridge با آن بالا می‌آمد. بعد از جایگزینی، Deploy کن و اول مطمئن شو Bridge دوباره سبز و متصل شده.
+    
