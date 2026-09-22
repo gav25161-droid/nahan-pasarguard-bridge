@@ -276,9 +276,13 @@ class NodeService(
             data = await self.nahan.stats()
 
             print(
-                "[STATS RESPONSE] "
-                f"python_type={type(data).__name__}"
-            )
+    "[STATS RESPONSE] "
+    f"python_type={type(data).__name__}"
+)
+
+print(
+    f"[STATS DATA] {data}"
+)
 
             response = service_pb2.StatResponse()
 
