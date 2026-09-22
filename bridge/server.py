@@ -231,50 +231,118 @@ class NodeService(
             uptime=0,
         )
 
-    async def GetStats(
-        self,
-        request,
-        context,
-    ):
+        async def GetStats(self, request, context):
         try:
-            request_name = getattr(
-                request,
-                "name",
-                "",
-            )
-
-            request_reset = getattr(
-                request,
-                "reset",
-                False,
-            )
-
-            request_type = getattr(
-                request,
-                "type",
-                0,
-            )
+            request_name = getattr(request, "name", "")
+            request_reset = getattr(request, "reset", False)
+            request_type = getattr(request, "type", 0)
 
             print(
-                "[STATS REQUEST] "
+                f"[STATS REQUEST] "
                 f"name={request_name} "
                 f"type={request_type} "
                 f"reset={request_reset}"
             )
 
         except Exception as e:
-
             print(
-                "[STATS REQUEST] "
-                f"Failed to inspect request: "
-                f"{type(e).__name__}: {e}"
+                f"[STATS REQUEST] "
+                f"LOG ERROR: {type(e).__name__}: {e}"
             )
 
+            request_name = ""
+            request_type = 0
+
         try:
+            response = service_pb2.StatResponse()
+
+            # ---------------------------------
+            # type=4 = UsersStat
+            # ---------------------------------
+            if request_type == 4:
+
+                print("[USERS STAT] Fetching Nahan users...")
+
+                users_data = await self.nahan.users()
+
+                print(
+                    f"[USERS STAT] "
+                    f"python_type={type(users_data).__name__}"
+                )
+
+                print(
+                    f"[USERS STAT DATA] "
+                    f"{users_data}"
+                )
+
+                if isinstance(users_data, dict):
+
+                    users = users_data.get(
+                        "users",
+                        []
+                    )
+
+                    print(
+                        f"[USERS STAT] "
+                        f"users_count={len(users)}"
+                    )
+
+                    for user in users:
+
+                        if not isinstance(user, dict):
+                            continue
+
+                        user_name = str(
+                            user.get("name", "")
+                        ).strip()
+
+                        usage = user.get(
+                            "usage",
+                            {}
+                        )
+
+                        if not isinstance(
+                            usage,
+                            dict
+                        ):
+                            usage = {}
+
+                        total_usage = usage.get(
+                            "total",
+                            0
+                        )
+
+                        try:
+                            total_usage = int(
+                                total_usage or 0
+                            )
+                        except Exception:
+                            total_usage = 0
+
+                        print(
+                            "[USERS STAT] "
+                            f"name={user_name} "
+                            f"total={total_usage}"
+                        )
+
+                        if not user_name:
+                            continue
+
+                        response.stats.add(
+                            name=user_name,
+                            type="UserStat",
+                            value=total_usage
+                        )
+
+                return response
+
+            # ---------------------------------
+            # type=0 = Outbounds
+            # ---------------------------------
             data = await self.nahan.stats()
 
             print(
-                "[STATS RESPONSE] "
+                f"[STATS RESPONSE] "
                 f"python_type={type(data).__name__}"
             )
 
@@ -282,30 +350,25 @@ class NodeService(
                 f"[STATS DATA] {data}"
             )
 
-            response = service_pb2.StatResponse()
-
-            if isinstance(
-                data,
-                dict,
-            ):
+            if isinstance(data, dict):
 
                 stats = data.get(
                     "stats",
-                    {},
+                    {}
                 )
 
                 traffic = stats.get(
                     "traffic",
-                    {},
+                    {}
                 )
 
                 total_requests = traffic.get(
                     "totalRequests",
-                    0,
+                    0
                 )
 
                 print(
-                    "[STATS] "
+                    f"[STATS] "
                     f"totalRequests={total_requests}"
                 )
 
@@ -314,7 +377,7 @@ class NodeService(
                     type="Outbounds",
                     value=int(
                         total_requests or 0
-                    ),
+                    )
                 )
 
             return response
