@@ -18,7 +18,10 @@ KEY_FILE = os.getenv(
     "/app/certs/server.key",
 )
 
-API_KEY = os.getenv("API_KEY", "").strip()
+API_KEY = os.getenv(
+    "API_KEY",
+    "",
+).strip()
 
 
 class AuthInterceptor(grpc.aio.ServerInterceptor):
@@ -32,7 +35,6 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
             handler_call_details.invocation_metadata
         )
 
-        # Read possible API-key metadata formats
         authorization = metadata.get(
             "authorization",
             "",
@@ -49,12 +51,6 @@ class AuthInterceptor(grpc.aio.ServerInterceptor):
         ).strip()
 
         expected = API_KEY
-
-        # Accept the common formats:
-        # authorization: Bearer <API_KEY>
-        # authorization: <API_KEY>
-        # api-key: <API_KEY>
-        # x-api-key: <API_KEY>
 
         valid = (
             authorization == f"Bearer {expected}"
@@ -91,18 +87,35 @@ class NodeService(
         self.state = BridgeState()
         self.nahan = NahanAPI()
 
-    def _describe_user(self, user, source):
+    def _describe_user(
+        self,
+        user,
+        source,
+    ):
         try:
-            email = getattr(user, "email", "")
+            email = getattr(
+                user,
+                "email",
+                "",
+            )
+
             inbounds = list(
-                getattr(user, "inbounds", [])
+                getattr(
+                    user,
+                    "inbounds",
+                    [],
+                )
             )
 
             proxy_types = []
 
             try:
-                if user.proxies.HasField("vless"):
-                    proxy_types.append("vless")
+                if user.proxies.HasField(
+                    "vless"
+                ):
+                    proxy_types.append(
+                        "vless"
+                    )
 
                     flow = getattr(
                         user.proxies.vless,
@@ -122,36 +135,57 @@ class NodeService(
                 pass
 
             try:
-                if user.proxies.HasField("vmess"):
-                    proxy_types.append("vmess")
+                if user.proxies.HasField(
+                    "vmess"
+                ):
+                    proxy_types.append(
+                        "vmess"
+                    )
             except Exception:
                 pass
 
             try:
-                if user.proxies.HasField("trojan"):
-                    proxy_types.append("trojan")
+                if user.proxies.HasField(
+                    "trojan"
+                ):
+                    proxy_types.append(
+                        "trojan"
+                    )
             except Exception:
                 pass
 
             try:
-                if user.proxies.HasField("shadowsocks"):
-                    proxy_types.append("shadowsocks")
+                if user.proxies.HasField(
+                    "shadowsocks"
+                ):
+                    proxy_types.append(
+                        "shadowsocks"
+                    )
             except Exception:
                 pass
 
             try:
-                if user.proxies.HasField("wireguard"):
-                    proxy_types.append("wireguard")
+                if user.proxies.HasField(
+                    "wireguard"
+                ):
+                    proxy_types.append(
+                        "wireguard"
+                    )
             except Exception:
                 pass
 
             try:
-                if user.proxies.HasField("hysteria"):
-                    proxy_types.append("hysteria")
+                if user.proxies.HasField(
+                    "hysteria"
+                ):
+                    proxy_types.append(
+                        "hysteria"
+                    )
             except Exception:
                 pass
 
             if "vless" not in proxy_types:
+
                 print(
                     f"[SYNC] {source} "
                     f"email={email} "
@@ -160,43 +194,117 @@ class NodeService(
                 )
 
         except Exception as e:
+
             print(
                 f"[SYNC] Failed to inspect user: "
                 f"{type(e).__name__}: {e}"
             )
 
-    async def GetBaseInfo(self, request, context):
+    async def GetBaseInfo(
+        self,
+        request,
+        context,
+    ):
         return service_pb2.BaseInfoResponse(
             started=True,
             core_version="nahan",
             node_version="bridge-1.0",
         )
 
-    async def GetSystemStats(self, request, context):
+    async def GetSystemStats(
+        self,
+        request,
+        context,
+    ):
         return service_pb2.SystemStatsResponse(
             cpu_cores=1,
             cpu_usage=0,
             uptime=0,
         )
 
-    async def GetBackendStats(self, request, context):
+    async def GetBackendStats(
+        self,
+        request,
+        context,
+    ):
         return service_pb2.BackendStatsResponse(
             uptime=0,
         )
 
-    async def GetStats(self, request, context):
+    async def GetStats(
+        self,
+        request,
+        context,
+    ):
+        # Debug information.
+        # This does not change the returned statistics.
+        try:
+            request_name = getattr(
+                request,
+                "name",
+                "",
+            )
+
+            request_reset = getattr(
+                request,
+                "reset",
+                False,
+            )
+
+            request_type = getattr(
+                request,
+                "type",
+                0,
+            )
+
+            print(
+                "[STATS REQUEST] "
+                f"name={request_name} "
+                f"type={request_type} "
+                f"reset={request_reset}"
+            )
+
+        except Exception as e:
+
+            print(
+                "[STATS REQUEST] "
+                f"Failed to inspect request: "
+                f"{type(e).__name__}: {e}"
+            )
+
         try:
             data = await self.nahan.stats()
 
+            print(
+                "[STATS RESPONSE] "
+                f"python_type={type(data).__name__}"
+            )
+
             response = service_pb2.StatResponse()
 
-            if isinstance(data, dict):
-                stats = data.get("stats", {})
-                traffic = stats.get("traffic", {})
+            if isinstance(
+                data,
+                dict,
+            ):
+
+                stats = data.get(
+                    "stats",
+                    {},
+                )
+
+                traffic = stats.get(
+                    "traffic",
+                    {},
+                )
 
                 total_requests = traffic.get(
                     "totalRequests",
                     0,
+                )
+
+                print(
+                    "[STATS] "
+                    f"totalRequests={total_requests}"
                 )
 
                 response.stats.add(
@@ -207,9 +315,17 @@ class NodeService(
                     ),
                 )
 
+            else:
+
+                print(
+                    "[STATS] "
+                    "Nahan response is not a dict"
+                )
+
             return response
 
         except Exception as e:
+
             print(
                 f"[STATS] Failed: "
                 f"{type(e).__name__}: {e}"
@@ -222,10 +338,18 @@ class NodeService(
         request,
         context,
     ):
-        print(
-            f"[ONLINE] requested for "
-            f"email={request.name}"
-        )
+        try:
+            print(
+                "[ONLINE] requested for "
+                f"email={request.name}"
+            )
+
+        except Exception as e:
+
+            print(
+                "[ONLINE] request inspection failed: "
+                f"{type(e).__name__}: {e}"
+            )
 
         return service_pb2.OnlineStatResponse(
             name=request.name,
@@ -237,10 +361,18 @@ class NodeService(
         request,
         context,
     ):
-        print(
-            f"[ONLINE-IP] requested for "
-            f"email={request.name}"
-        )
+        try:
+            print(
+                "[ONLINE-IP] requested for "
+                f"email={request.name}"
+            )
+
+        except Exception as e:
+
+            print(
+                "[ONLINE-IP] request inspection failed: "
+                f"{type(e).__name__}: {e}"
+            )
 
         return service_pb2.StatsOnlineIpListResponse(
             name=request.name,
@@ -258,6 +390,7 @@ class NodeService(
         )
 
         async for user in request_iterator:
+
             count += 1
 
             self._describe_user(
@@ -266,7 +399,7 @@ class NodeService(
             )
 
         print(
-            f"[SYNC] SyncUser stream finished, "
+            "[SYNC] SyncUser stream finished, "
             f"users={count}"
         )
 
@@ -280,11 +413,12 @@ class NodeService(
         users = request.users
 
         print(
-            f"[SYNC] SyncUsers received, "
+            "[SYNC] SyncUsers received, "
             f"users={len(users)}"
         )
 
         for user in users:
+
             self._describe_user(
                 user,
                 "SyncUsers",
@@ -306,6 +440,7 @@ class NodeService(
         )
 
         async for chunk in request_iterator:
+
             chunks += 1
 
             print(
@@ -316,6 +451,7 @@ class NodeService(
             )
 
             for user in chunk.users:
+
                 total += 1
 
                 self._describe_user(
@@ -324,7 +460,7 @@ class NodeService(
                 )
 
         print(
-            f"[SYNC] SyncUsersChunked finished, "
+            "[SYNC] SyncUsersChunked finished, "
             f"chunks={chunks}, users={total}"
         )
 
@@ -335,7 +471,9 @@ class NodeService(
         request,
         context,
     ):
-        print("[NODE] Start requested")
+        print(
+            "[NODE] Start requested"
+        )
 
         return service_pb2.BaseInfoResponse(
             started=True,
@@ -348,21 +486,29 @@ class NodeService(
         request,
         context,
     ):
-        print("[NODE] Stop requested")
+        print(
+            "[NODE] Stop requested"
+        )
 
         return service_pb2.Empty()
 
 
 async def create_server():
 
-    if not os.path.exists(CERT_FILE):
+    if not os.path.exists(
+        CERT_FILE
+    ):
         raise RuntimeError(
-            f"TLS certificate not found: {CERT_FILE}"
+            f"TLS certificate not found: "
+            f"{CERT_FILE}"
         )
 
-    if not os.path.exists(KEY_FILE):
+    if not os.path.exists(
+        KEY_FILE
+    ):
         raise RuntimeError(
-            f"TLS private key not found: {KEY_FILE}"
+            f"TLS private key not found: "
+            f"{KEY_FILE}"
         )
 
     if not API_KEY:
@@ -374,20 +520,24 @@ async def create_server():
         CERT_FILE,
         "rb",
     ) as cert_file:
+
         certificate = cert_file.read()
 
     with open(
         KEY_FILE,
         "rb",
     ) as key_file:
+
         private_key = key_file.read()
 
-    credentials = grpc.ssl_server_credentials(
-        (
+    credentials = (
+        grpc.ssl_server_credentials(
             (
-                private_key,
-                certificate,
-            ),
+                (
+                    private_key,
+                    certificate,
+                ),
+            )
         )
     )
 
@@ -397,9 +547,12 @@ async def create_server():
         ]
     )
 
-    service_pb2_grpc.add_NodeServiceServicer_to_server(
-        NodeService(),
-        server,
+    (
+        service_pb2_grpc
+        .add_NodeServiceServicer_to_server(
+            NodeService(),
+            server,
+        )
     )
 
     return server, credentials
