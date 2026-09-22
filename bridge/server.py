@@ -358,6 +358,7 @@ class NodeService(
                     response.stats.add(
                         name=user_name,
                         type="UserStat",
+                        link=user_id,
                         value=total_usage,
                     )
 
