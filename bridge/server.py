@@ -355,12 +355,20 @@ class NodeService(
                         f"total={total_usage}"
                     )
 
-                    response.stats.add(
+                    if user_name == "من":
+                        response.stats.add(
+                            name="kia",
+                            type="UserStat",
+                            link="1",
+                            value=total_usage,
+                )
+                    else:
+                        response.stats.add(
                         name=user_name,
                         type="UserStat",
                         link=user_id,
                         value=total_usage,
-                    )
+                )
 
                 print(
                     f"[USERS STAT] "
