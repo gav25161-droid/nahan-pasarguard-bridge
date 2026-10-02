@@ -91,6 +91,8 @@ class NodeService(
                 "email",
                 "",
             )
+            print("[SYNC RAW USER]")
+            print(user)
 
             inbounds = list(
                 getattr(
