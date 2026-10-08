@@ -290,19 +290,41 @@ class NodeService(
                         f"total={total_usage}"
                     )
 
-                    if user_name == "من":
+                    notes = user.get("notes") or ""
+
+                    pg_uid = None
+
+                    if isinstance(notes, str):
+                        if notes.startswith("PG_UID:"):
+                            candidate = notes.split(
+                                ":",
+                                1,
+                            )[1].strip()
+
+                            if candidate.isdigit():
+                                pg_uid = candidate
+
+                    if pg_uid is not None:
+
+                        print(
+                            "[USERS STAT] "
+                            f"mapping nahan={user_name} "
+                            f"-> pg_uid={pg_uid}"
+                        )
+
                         response.stats.add(
-                            name="kia",
+                            name=pg_uid,
                             type="UserStat",
-                            link="1",
+                            link=pg_uid,
                             value=total_usage,
                         )
+
                     else:
-                        response.stats.add(
-                            name=user_name,
-                            type="UserStat",
-                            link=user_id,
-                            value=total_usage,
+
+                        print(
+                            "[USERS STAT] "
+                            f"no PG mapping for "
+                            f"nahan={user_name}, skipping"
                         )
 
                 print(
