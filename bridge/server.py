@@ -381,22 +381,6 @@ class NodeService(
 
         return service_pb2.StatResponse()
 
-    async def GetUserOnlineStats(
-        self,
-        request,
-        context,
-    ):
-
-        print(
-            f"[ONLINE] requested for "
-            f"email={request.name}"
-        )
-
-        return service_pb2.OnlineStatResponse(
-            name=request.name,
-            value=0,
-        )
-
     async def GetUserOnlineIpListStats(
         self,
         request,
