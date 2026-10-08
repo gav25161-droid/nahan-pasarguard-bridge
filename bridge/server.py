@@ -83,6 +83,7 @@ class NodeService(
     def __init__(self):
         self.state = BridgeState()
         self.nahan = NahanAPI()
+        self._nahan_usage_last = {}
 
     def _describe_user(self, user, source):
 
