@@ -212,174 +212,174 @@ class NodeService(
         )
 
     async def GetStats(self, request, context):
-    try:
-        request_type = int(request.type)
+        try:
+            request_type = int(request.type)
 
-        print(f"[GET STATS] type={request_type}")
+            print(f"[GET STATS] type={request_type}")
 
-        # PasarGuard UsersStat
-        if request_type == 4:
-            data = await self.nahan.users()
+            # PasarGuard UsersStat
+            if request_type == 4:
+                data = await self.nahan.users()
 
-            response = service_pb2.StatResponse()
+                response = service_pb2.StatResponse()
 
-            if not isinstance(data, dict):
-                return response
+                if not isinstance(data, dict):
+                    return response
 
-            users = data.get("users", [])
+                users = data.get("users", [])
 
-            for user in users:
-                if not isinstance(user, dict):
-                    continue
+                for user in users:
+                    if not isinstance(user, dict):
+                        continue
 
-                user_id = user.get("id", "")
-                user_name = user.get("name", "")
+                    user_id = user.get("id", "")
+                    user_name = user.get("name", "")
 
-                usage = user.get("usage", {})
-                if not isinstance(usage, dict):
-                    usage = {}
+                    usage = user.get("usage", {})
+                    if not isinstance(usage, dict):
+                        usage = {}
 
-                total_usage = usage.get("total", 0)
+                    total_usage = usage.get("total", 0)
 
-                try:
-                    total_usage = int(total_usage or 0)
-                except (ValueError, TypeError):
-                    total_usage = 0
+                    try:
+                        total_usage = int(total_usage or 0)
+                    except (ValueError, TypeError):
+                        total_usage = 0
 
-                print(
-                    f"[USERS STAT] "
-                    f"name={user_name} "
-                    f"id={user_id} "
-                    f"total={total_usage}"
-                )
-
-                # -----------------------------------------
-                # PasarGuard UID mapping
-                # -----------------------------------------
-
-                notes = user.get("notes") or ""
-
-                pg_uid = None
-
-                if isinstance(notes, str):
-                    if notes.startswith("PG_UID:"):
-                        candidate = notes.split(":", 1)[1].strip()
-
-                        if candidate.isdigit():
-                            pg_uid = candidate
-
-                if pg_uid is None:
                     print(
                         f"[USERS STAT] "
-                        f"no PG mapping for {user_name}; skipping"
+                        f"name={user_name} "
+                        f"id={user_id} "
+                        f"total={total_usage}"
                     )
-                    continue
 
-                # -----------------------------------------
-                # Convert Nahan cumulative usage
-                # to incremental usage for PasarGuard
-                # -----------------------------------------
+                    # -----------------------------------------
+                    # PasarGuard UID mapping
+                    # -----------------------------------------
 
-                previous_usage = self._nahan_usage_last.get(user_id)
+                    notes = user.get("notes") or ""
 
-                if previous_usage is None:
-                    # First time we see this user.
-                    # Do NOT send the old cumulative usage,
-                    # otherwise PasarGuard would add it immediately.
+                    pg_uid = None
+
+                    if isinstance(notes, str):
+                        if notes.startswith("PG_UID:"):
+                            candidate = notes.split(":", 1)[1].strip()
+
+                            if candidate.isdigit():
+                                pg_uid = candidate
+
+                    if pg_uid is None:
+                        print(
+                            f"[USERS STAT] "
+                            f"no PG mapping for {user_name}; skipping"
+                        )
+                        continue
+
+                    # -----------------------------------------
+                    # Convert Nahan cumulative usage
+                    # to incremental usage for PasarGuard
+                    # -----------------------------------------
+
+                    previous_usage = self._nahan_usage_last.get(user_id)
+
+                    if previous_usage is None:
+                        # First time we see this user.
+                        # Do NOT send the old cumulative usage,
+                        # otherwise PasarGuard would add it immediately.
+                        self._nahan_usage_last[user_id] = total_usage
+
+                        print(
+                            f"[USERS STAT] "
+                            f"baseline set: "
+                            f"nahan={user_name} "
+                            f"total={total_usage} "
+                            f"delta=0"
+                        )
+
+                        continue
+
+                    # Nahan counter normally increases.
+                    if total_usage >= previous_usage:
+                        delta = total_usage - previous_usage
+                    else:
+                        # Nahan usage counter was reset.
+                        # Start counting again from the new value.
+                        delta = total_usage
+
+                        print(
+                            f"[USERS STAT] "
+                            f"counter reset detected: "
+                            f"nahan={user_name} "
+                            f"old={previous_usage} "
+                            f"new={total_usage}"
+                        )
+
+                    # Save current cumulative value
                     self._nahan_usage_last[user_id] = total_usage
 
                     print(
                         f"[USERS STAT] "
-                        f"baseline set: "
-                        f"nahan={user_name} "
-                        f"total={total_usage} "
-                        f"delta=0"
+                        f"mapping nahan={user_name} "
+                        f"-> pg_uid={pg_uid} "
+                        f"previous={previous_usage} "
+                        f"current={total_usage} "
+                        f"delta={delta}"
                     )
 
-                    continue
-
-                # Nahan counter normally increases.
-                if total_usage >= previous_usage:
-                    delta = total_usage - previous_usage
-                else:
-                    # Nahan usage counter was reset.
-                    # Start counting again from the new value.
-                    delta = total_usage
-
-                    print(
-                        f"[USERS STAT] "
-                        f"counter reset detected: "
-                        f"nahan={user_name} "
-                        f"old={previous_usage} "
-                        f"new={total_usage}"
-                    )
-
-                # Save current cumulative value
-                self._nahan_usage_last[user_id] = total_usage
+                    # Only send positive/new traffic
+                    if delta > 0:
+                        response.stats.add(
+                            name=pg_uid,
+                            type="UserStat",
+                            link=pg_uid,
+                            value=delta,
+                        )
 
                 print(
                     f"[USERS STAT] "
-                    f"mapping nahan={user_name} "
-                    f"-> pg_uid={pg_uid} "
-                    f"previous={previous_usage} "
-                    f"current={total_usage} "
-                    f"delta={delta}"
+                    f"Returning {len(response.stats)} user stats"
                 )
 
-                # Only send positive/new traffic
-                if delta > 0:
-                    response.stats.add(
-                        name=pg_uid,
-                        type="UserStat",
-                        link=pg_uid,
-                        value=delta,
-                    )
+                return response
 
-            print(
-                f"[USERS STAT] "
-                f"Returning {len(response.stats)} user stats"
-            )
+            # -----------------------------------------
+            # Other statistics
+            # -----------------------------------------
+
+            data = await self.nahan.stats()
+
+            response = service_pb2.StatResponse()
+
+            if isinstance(data, dict):
+                stats = data.get("stats", {})
+
+                if not isinstance(stats, dict):
+                    stats = {}
+
+                traffic = stats.get("traffic", {})
+
+                if not isinstance(traffic, dict):
+                    traffic = {}
+
+                total_requests = traffic.get("totalRequests", 0)
+
+                try:
+                    total_requests = int(total_requests or 0)
+                except (ValueError, TypeError):
+                    total_requests = 0
+
+                response.stats.add(
+                    name="nahan",
+                    type="Outbounds",
+                    value=total_requests,
+                )
 
             return response
 
-        # -----------------------------------------
-        # Other statistics
-        # -----------------------------------------
+        except Exception as e:
+            print(f"[GET STATS ERROR] {e}")
 
-        data = await self.nahan.stats()
-
-        response = service_pb2.StatResponse()
-
-        if isinstance(data, dict):
-            stats = data.get("stats", {})
-
-            if not isinstance(stats, dict):
-                stats = {}
-
-            traffic = stats.get("traffic", {})
-
-            if not isinstance(traffic, dict):
-                traffic = {}
-
-            total_requests = traffic.get("totalRequests", 0)
-
-            try:
-                total_requests = int(total_requests or 0)
-            except (ValueError, TypeError):
-                total_requests = 0
-
-            response.stats.add(
-                name="nahan",
-                type="Outbounds",
-                value=total_requests,
-            )
-
-        return response
-
-    except Exception as e:
-        print(f"[GET STATS ERROR] {e}")
-
-        return service_pb2.StatResponse()
+            return service_pb2.StatResponse()
 
     async def GetUserOnlineIpListStats(
         self,
